@@ -3,7 +3,7 @@
  * A custom Lovelace card for Home Assistant
  * Three display modes: Thermostat & Humidity, Thermostat, Temperature sensor
  *
- * Version: 1.0.2
+ * Version: 1.0.3
  */
 
 /* ============================================================
@@ -259,22 +259,114 @@ class UltimateClimateCard extends HTMLElement {
 
   /* --- Build DOM --- */
   _buildStructure() {
+    const mode = this._config.mode || "full";
     this.shadowRoot.innerHTML = `
       <ha-card>
         <div class="cl" id="root">
           <div class="cl-name" id="cardName"></div>
           <div class="cl-status" id="status"></div>
-          <div id="content"></div>
+
+          <!-- Full mode: temp + humidity stacked, set row below -->
+          <div class="cl-blocks" id="blocksRow" style="display:none;">
+            <div class="cl-block">
+              <span class="cl-bval" id="fullTemp">--</span>
+              <span class="cl-blbl">Temperatuur</span>
+            </div>
+            <div class="cl-block">
+              <span class="cl-bval" id="fullHum">--</span>
+              <span class="cl-blbl">Vochtigheid</span>
+            </div>
+          </div>
+          <div class="cl-set" id="fullSet" style="display:none;">
+            <button class="cl-btn cl-minus" id="fullMinus">
+              <ha-icon icon="mdi:minus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
+            </button>
+            <div class="cl-setval">
+              <span class="cl-bval" id="fullTarget">--</span>
+              <span class="cl-blbl">Instellen</span>
+            </div>
+            <button class="cl-btn cl-plus" id="fullPlus">
+              <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
+            </button>
+          </div>
+
+          <!-- Climate mode: temp + set side by side -->
+          <div class="cl-row" id="climateRow" style="display:none;">
+            <div class="cl-block">
+              <span class="cl-bval" id="climTemp">--</span>
+              <span class="cl-blbl">Temperatuur</span>
+            </div>
+            <div class="cl-set">
+              <button class="cl-btn cl-minus" id="climMinus">
+                <ha-icon icon="mdi:minus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
+              </button>
+              <div class="cl-setval">
+                <span class="cl-bval" id="climTarget">--</span>
+                <span class="cl-blbl">Instellen</span>
+              </div>
+              <button class="cl-btn cl-plus" id="climPlus">
+                <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
+              </button>
+            </div>
+          </div>
+
+          <!-- Temperature-only mode -->
+          <div class="cl-block" id="tempOnlyBlock" style="display:none;">
+            <span class="cl-bval" id="tempOnlyVal">--</span>
+            <span class="cl-blbl">Temperatuur</span>
+          </div>
         </div>
       </ha-card>
       ${this._styles()}
     `;
+
     this._els = {
-      root: this.shadowRoot.getElementById("root"),
       cardName: this.shadowRoot.getElementById("cardName"),
       status: this.shadowRoot.getElementById("status"),
-      content: this.shadowRoot.getElementById("content"),
+      // Full mode
+      blocksRow: this.shadowRoot.getElementById("blocksRow"),
+      fullSet: this.shadowRoot.getElementById("fullSet"),
+      fullTemp: this.shadowRoot.getElementById("fullTemp"),
+      fullHum: this.shadowRoot.getElementById("fullHum"),
+      fullTarget: this.shadowRoot.getElementById("fullTarget"),
+      // Climate mode
+      climateRow: this.shadowRoot.getElementById("climateRow"),
+      climTemp: this.shadowRoot.getElementById("climTemp"),
+      climTarget: this.shadowRoot.getElementById("climTarget"),
+      // Temp only
+      tempOnlyBlock: this.shadowRoot.getElementById("tempOnlyBlock"),
+      tempOnlyVal: this.shadowRoot.getElementById("tempOnlyVal"),
     };
+
+    // Wire buttons ONCE — they never get destroyed
+    const minT = this._config.min_temp;
+    const maxT = this._config.max_temp;
+    const step = this._config.temp_step;
+    const climateEntity = this._config.climate_entity;
+
+    const handleMinus = (e) => {
+      e.stopPropagation();
+      if (!this._hass || !climateEntity) return;
+      const cur = parseFloat(this._hass.states[climateEntity]?.attributes?.temperature) || 0;
+      this._hass.callService("climate", "set_temperature", {
+        entity_id: climateEntity,
+        temperature: Math.max(minT, +(cur - step).toFixed(1)),
+      });
+    };
+    const handlePlus = (e) => {
+      e.stopPropagation();
+      if (!this._hass || !climateEntity) return;
+      const cur = parseFloat(this._hass.states[climateEntity]?.attributes?.temperature) || 0;
+      this._hass.callService("climate", "set_temperature", {
+        entity_id: climateEntity,
+        temperature: Math.min(maxT, +(cur + step).toFixed(1)),
+      });
+    };
+
+    this.shadowRoot.getElementById("fullMinus").addEventListener("click", handleMinus);
+    this.shadowRoot.getElementById("fullPlus").addEventListener("click", handlePlus);
+    this.shadowRoot.getElementById("climMinus").addEventListener("click", handleMinus);
+    this.shadowRoot.getElementById("climPlus").addEventListener("click", handlePlus);
   }
 
   _styles() {
@@ -390,43 +482,37 @@ class UltimateClimateCard extends HTMLElement {
     // Name
     this._els.cardName.textContent = this._config.name || this._getEntityName() || "?";
 
+    // Show/hide sections based on mode
+    this._els.blocksRow.style.display = mode === "full" ? "" : "none";
+    this._els.fullSet.style.display = mode === "full" ? "" : "none";
+    this._els.climateRow.style.display = mode === "climate" ? "" : "none";
+    this._els.tempOnlyBlock.style.display = mode === "temperature" ? "" : "none";
+
     if (mode === "temperature") {
-      this._renderTemperatureOnly();
-    } else if (mode === "climate") {
-      this._renderClimate(false);
+      this._updateTemperatureOnly();
     } else {
-      this._renderClimate(true);
+      this._updateClimate(mode === "full");
     }
   }
 
   /* --- Mode: Temperature sensor only --- */
-  _renderTemperatureOnly() {
+  _updateTemperatureOnly() {
     const entity = this._config.temperature_entity;
     const stateObj = this._hass.states[entity];
 
-    if (!stateObj) {
-      this._els.status.textContent = "";
-      this._els.status.style.display = "none";
-      this._els.content.innerHTML = `<div class="cl-block"><span class="cl-bval">--</span><span class="cl-blbl">Niet beschikbaar</span></div>`;
-      return;
-    }
-
-    const temp = parseFloat(stateObj.state) || 0;
-
-    // No status for temperature-only mode
     this._els.status.textContent = "";
     this._els.status.style.display = "none";
 
-    this._els.content.innerHTML = `
-      <div class="cl-block">
-        <span class="cl-bval">${temp.toFixed(1)}°</span>
-        <span class="cl-blbl">Temperatuur</span>
-      </div>
-    `;
+    if (!stateObj) {
+      this._els.tempOnlyVal.textContent = "--";
+      return;
+    }
+    const temp = parseFloat(stateObj.state) || 0;
+    this._els.tempOnlyVal.textContent = temp.toFixed(1) + "°";
   }
 
   /* --- Mode: Climate (with or without humidity) --- */
-  _renderClimate(showHumidity) {
+  _updateClimate(showHumidity) {
     const climateEntity = this._config.climate_entity;
     const stateObj = this._hass.states[climateEntity];
 
@@ -434,7 +520,6 @@ class UltimateClimateCard extends HTMLElement {
       this._els.status.textContent = "Niet beschikbaar";
       this._els.status.style.color = "rgba(255,255,255,0.38)";
       this._els.status.style.display = "";
-      this._els.content.innerHTML = "";
       return;
     }
 
@@ -458,88 +543,20 @@ class UltimateClimateCard extends HTMLElement {
     this._els.status.style.color = sc;
     this._els.status.style.display = "";
 
-    const minT = this._config.min_temp;
-    const maxT = this._config.max_temp;
-    const step = this._config.temp_step;
-
     if (showHumidity) {
-      // Full mode: temp block + humidity block (stacked), then set row below
+      // Full mode — update values
+      this._els.fullTemp.textContent = curTemp.toFixed(1) + "°";
+      this._els.fullTarget.textContent = targetTemp.toFixed(1) + "°";
+
       const humEntity = this._config.humidity_entity;
       const humObj = this._hass.states[humEntity];
-      const humidity = humObj ? Math.round(parseFloat(humObj.state) || 0) : "--";
-
-      this._els.content.innerHTML = `
-        <div class="cl-blocks">
-          <div class="cl-block">
-            <span class="cl-bval">${curTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Temperatuur</span>
-          </div>
-          <div class="cl-block">
-            <span class="cl-bval">${humidity}%</span>
-            <span class="cl-blbl">Vochtigheid</span>
-          </div>
-        </div>
-        <div class="cl-set">
-          <button class="cl-btn cl-minus" id="btnMinus">
-            <ha-icon icon="mdi:minus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
-          </button>
-          <div class="cl-setval">
-            <span class="cl-bval">${targetTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Instellen</span>
-          </div>
-          <button class="cl-btn cl-plus" id="btnPlus">
-            <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
-          </button>
-        </div>
-      `;
+      this._els.fullHum.textContent = humObj
+        ? Math.round(parseFloat(humObj.state) || 0) + "%"
+        : "--%";
     } else {
-      // Climate mode: temp block + set block side by side
-      this._els.content.innerHTML = `
-        <div class="cl-row">
-          <div class="cl-block">
-            <span class="cl-bval">${curTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Temperatuur</span>
-          </div>
-          <div class="cl-set">
-            <button class="cl-btn cl-minus" id="btnMinus">
-              <ha-icon icon="mdi:minus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
-            </button>
-            <div class="cl-setval">
-              <span class="cl-bval">${targetTemp.toFixed(1)}°</span>
-              <span class="cl-blbl">Instellen</span>
-            </div>
-            <button class="cl-btn cl-plus" id="btnPlus">
-              <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    // Wire buttons
-    const btnMinus = this.shadowRoot.getElementById("btnMinus");
-    const btnPlus = this.shadowRoot.getElementById("btnPlus");
-    if (btnMinus) {
-      btnMinus.onclick = (e) => {
-        e.stopPropagation();
-        const cur = parseFloat(this._hass.states[climateEntity].attributes.temperature) || 0;
-        const newTemp = Math.max(minT, +(cur - step).toFixed(1));
-        this._hass.callService("climate", "set_temperature", {
-          entity_id: climateEntity,
-          temperature: newTemp,
-        });
-      };
-    }
-    if (btnPlus) {
-      btnPlus.onclick = (e) => {
-        e.stopPropagation();
-        const cur = parseFloat(this._hass.states[climateEntity].attributes.temperature) || 0;
-        const newTemp = Math.min(maxT, +(cur + step).toFixed(1));
-        this._hass.callService("climate", "set_temperature", {
-          entity_id: climateEntity,
-          temperature: newTemp,
-        });
-      };
+      // Climate mode — update values
+      this._els.climTemp.textContent = curTemp.toFixed(1) + "°";
+      this._els.climTarget.textContent = targetTemp.toFixed(1) + "°";
     }
   }
 
@@ -571,7 +588,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c ULTIMATE-CLIMATE-CARD %c v1.0.2 ",
+  "%c ULTIMATE-CLIMATE-CARD %c v1.0.3 ",
   "color:#fff;background:#ff7043;font-weight:bold;padding:2px 6px;border-radius:4px 0 0 4px;",
   "color:#ff7043;background:#f0f0f0;font-weight:bold;padding:2px 6px;border-radius:0 4px 4px 0;"
 );
