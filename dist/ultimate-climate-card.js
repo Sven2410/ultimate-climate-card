@@ -3,7 +3,7 @@
  * A custom Lovelace card for Home Assistant
  * Three display modes: Thermostat & Humidity, Thermostat, Temperature sensor
  *
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 /* ============================================================
@@ -49,17 +49,33 @@ class UltimateClimateCardEditor extends HTMLElement {
         .row { display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
         .row.hidden { display:none; }
         label { font-size:13px; font-weight:500; color:var(--primary-text-color); }
-        ha-entity-picker, ha-textfield, ha-select { display:block; width:100%; }
-        mwc-list-item { font-size:14px; }
+        ha-entity-picker, ha-textfield { display:block; width:100%; }
+        .mode-select {
+          display:block; width:100%; padding:10px 12px;
+          background: var(--card-background-color, #1c1c1c);
+          color: var(--primary-text-color, #fff);
+          border: 1px solid var(--divider-color, #444);
+          border-radius: 8px;
+          font-size: 14px;
+          font-family: var(--primary-font-family, sans-serif);
+          cursor: pointer;
+          -webkit-appearance: none;
+          appearance: none;
+          outline: none;
+        }
+        .mode-select option {
+          background: var(--card-background-color, #1c1c1c);
+          color: var(--primary-text-color, #fff);
+        }
       </style>
 
       <div class="row" id="row-mode">
         <label>Card mode</label>
-        <ha-select id="mode" naturalMenuWidth>
-          <mwc-list-item value="full">Thermostat &amp; Humidity</mwc-list-item>
-          <mwc-list-item value="climate">Thermostat</mwc-list-item>
-          <mwc-list-item value="temperature">Temperature sensor</mwc-list-item>
-        </ha-select>
+        <select id="mode" class="mode-select">
+          <option value="full">Thermostat &amp; Humidity</option>
+          <option value="climate">Thermostat</option>
+          <option value="temperature">Temperature sensor</option>
+        </select>
       </div>
 
       <div class="row" id="row-name">
@@ -110,15 +126,13 @@ class UltimateClimateCardEditor extends HTMLElement {
     this._toggleFields(mode);
 
     // --- Wire events ---
-    modeSelect.addEventListener("selected-item-changed", () => {
-      // Delay to let ha-select update its value
-      requestAnimationFrame(() => {
-        const v = modeSelect.value;
-        if (!v || v === this._val("mode", "full")) return;
+    modeSelect.addEventListener("change", () => {
+      const v = modeSelect.value;
+      if (v !== this._val("mode", "full")) {
         this._config = { ...this._config, mode: v };
         this._toggleFields(v);
         this._fireChanged();
-      });
+      }
     });
 
     nameField.addEventListener("change", (ev) => {
@@ -557,7 +571,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c ULTIMATE-CLIMATE-CARD %c v1.0.0 ",
+  "%c ULTIMATE-CLIMATE-CARD %c v1.0.1 ",
   "color:#fff;background:#ff7043;font-weight:bold;padding:2px 6px;border-radius:4px 0 0 4px;",
   "color:#ff7043;background:#f0f0f0;font-weight:bold;padding:2px 6px;border-radius:0 4px 4px 0;"
 );
