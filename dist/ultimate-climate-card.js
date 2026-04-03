@@ -3,7 +3,7 @@
  * A custom Lovelace card for Home Assistant
  * Three display modes: Thermostat & Humidity, Thermostat, Temperature sensor
  *
- * Version: 1.0.1
+ * Version: 1.0.2
  */
 
 /* ============================================================
@@ -293,7 +293,7 @@ class UltimateClimateCard extends HTMLElement {
         padding: 0 !important;
       }
       .cl {
-        padding: 7px 10px;
+        padding: 12px 16px;
         font-family: var(--primary-font-family, sans-serif);
         color: #fff;
         box-sizing: border-box;
@@ -309,16 +309,16 @@ class UltimateClimateCard extends HTMLElement {
         font-size: 9.5px;
         font-weight: 600;
         letter-spacing: .02em;
-        margin-bottom: 5px;
+        margin-bottom: 8px;
       }
       .cl-blocks {
         display: flex;
-        gap: 5px;
-        margin-bottom: 5px;
+        gap: 8px;
+        margin-bottom: 8px;
       }
       .cl-row {
         display: flex;
-        gap: 5px;
+        gap: 8px;
       }
       .cl-block {
         flex: 1;
@@ -329,7 +329,7 @@ class UltimateClimateCard extends HTMLElement {
         background: rgba(255,255,255,.06);
         border: 1px solid rgba(255,255,255,.1);
         border-radius: 8px;
-        padding: 5px 4px 4px;
+        padding: 8px 6px 6px;
       }
       .cl-set {
         flex: 1;
@@ -339,7 +339,7 @@ class UltimateClimateCard extends HTMLElement {
         background: rgba(255,255,255,.06);
         border: 1px solid rgba(255,255,255,.1);
         border-radius: 8px;
-        padding: 4px 8px;
+        padding: 6px 10px;
       }
       .cl-setval {
         display: flex;
@@ -407,7 +407,7 @@ class UltimateClimateCard extends HTMLElement {
     if (!stateObj) {
       this._els.status.textContent = "";
       this._els.status.style.display = "none";
-      this._els.content.innerHTML = `<div class="cl-block"><span class="cl-bval">--</span><span class="cl-blbl">Unavailable</span></div>`;
+      this._els.content.innerHTML = `<div class="cl-block"><span class="cl-bval">--</span><span class="cl-blbl">Niet beschikbaar</span></div>`;
       return;
     }
 
@@ -420,7 +420,7 @@ class UltimateClimateCard extends HTMLElement {
     this._els.content.innerHTML = `
       <div class="cl-block">
         <span class="cl-bval">${temp.toFixed(1)}°</span>
-        <span class="cl-blbl">Temperature</span>
+        <span class="cl-blbl">Temperatuur</span>
       </div>
     `;
   }
@@ -431,7 +431,7 @@ class UltimateClimateCard extends HTMLElement {
     const stateObj = this._hass.states[climateEntity];
 
     if (!stateObj) {
-      this._els.status.textContent = "Unavailable";
+      this._els.status.textContent = "Niet beschikbaar";
       this._els.status.style.color = "rgba(255,255,255,0.38)";
       this._els.status.style.display = "";
       this._els.content.innerHTML = "";
@@ -446,13 +446,13 @@ class UltimateClimateCard extends HTMLElement {
     // Status
     let sc, acLbl;
     if (hvacAction === "heating") {
-      sc = "#ff7043"; acLbl = "Heating";
+      sc = "#ff7043"; acLbl = "Verwarmen";
     } else if (hvacAction === "cooling") {
-      sc = "#4fc3f7"; acLbl = "Cooling";
+      sc = "#4fc3f7"; acLbl = "Koelen";
     } else if (hvacMode === "off") {
-      sc = "rgba(255,255,255,0.28)"; acLbl = "Off";
+      sc = "rgba(255,255,255,0.28)"; acLbl = "Uit";
     } else {
-      sc = "rgba(255,255,255,0.38)"; acLbl = "Idle";
+      sc = "rgba(255,255,255,0.38)"; acLbl = "Inactief";
     }
     this._els.status.textContent = acLbl;
     this._els.status.style.color = sc;
@@ -472,11 +472,11 @@ class UltimateClimateCard extends HTMLElement {
         <div class="cl-blocks">
           <div class="cl-block">
             <span class="cl-bval">${curTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Temperature</span>
+            <span class="cl-blbl">Temperatuur</span>
           </div>
           <div class="cl-block">
             <span class="cl-bval">${humidity}%</span>
-            <span class="cl-blbl">Humidity</span>
+            <span class="cl-blbl">Vochtigheid</span>
           </div>
         </div>
         <div class="cl-set">
@@ -485,7 +485,7 @@ class UltimateClimateCard extends HTMLElement {
           </button>
           <div class="cl-setval">
             <span class="cl-bval">${targetTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Set</span>
+            <span class="cl-blbl">Instellen</span>
           </div>
           <button class="cl-btn cl-plus" id="btnPlus">
             <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
@@ -498,7 +498,7 @@ class UltimateClimateCard extends HTMLElement {
         <div class="cl-row">
           <div class="cl-block">
             <span class="cl-bval">${curTemp.toFixed(1)}°</span>
-            <span class="cl-blbl">Temperature</span>
+            <span class="cl-blbl">Temperatuur</span>
           </div>
           <div class="cl-set">
             <button class="cl-btn cl-minus" id="btnMinus">
@@ -506,7 +506,7 @@ class UltimateClimateCard extends HTMLElement {
             </button>
             <div class="cl-setval">
               <span class="cl-bval">${targetTemp.toFixed(1)}°</span>
-              <span class="cl-blbl">Set</span>
+              <span class="cl-blbl">Instellen</span>
             </div>
             <button class="cl-btn cl-plus" id="btnPlus">
               <ha-icon icon="mdi:plus" style="--mdc-icon-size:12px;color:inherit;display:block;"></ha-icon>
@@ -571,7 +571,7 @@ window.customCards.push({
 });
 
 console.info(
-  "%c ULTIMATE-CLIMATE-CARD %c v1.0.1 ",
+  "%c ULTIMATE-CLIMATE-CARD %c v1.0.2 ",
   "color:#fff;background:#ff7043;font-weight:bold;padding:2px 6px;border-radius:4px 0 0 4px;",
   "color:#ff7043;background:#f0f0f0;font-weight:bold;padding:2px 6px;border-radius:0 4px 4px 0;"
 );
